@@ -1,0 +1,449 @@
+basePath: /api
+definitions:
+  handlers.OperatorLoginInput:
+    properties:
+      password:
+        example: securepassword
+        type: string
+      username:
+        example: operator1
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  handlers.TokenInput:
+    properties:
+      telegram_id:
+        example: "88376478"
+        type: string
+    required:
+    - telegram_id
+    type: object
+  handlers.addMessageInput:
+    properties:
+      content:
+        example: Сообщение
+        type: string
+      recipient:
+        example: operator
+        type: string
+      sender:
+        example: user
+        type: string
+    required:
+    - content
+    - recipient
+    - sender
+    type: object
+  handlers.createTicketInput:
+    properties:
+      description:
+        description: Описание проблемы
+        example: Описание проблемы...
+        type: string
+      source:
+        description: Источник тикета
+        example: Telegram
+        type: string
+      subject:
+        description: Тема тикета
+        example: Проблема с продуктом
+        type: string
+    required:
+    - description
+    - source
+    - subject
+    type: object
+  models.Message:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        description: Заменяем gorm.DeletedAt на *time.Time
+        type: string
+      id:
+        type: integer
+      recipient:
+        type: string
+      sender:
+        type: string
+      ticket_id:
+        type: integer
+      timestamp:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Ticket:
+    properties:
+      closed_at:
+        type: string
+      closed_by:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        description: Заменяем gorm.DeletedAt на *time.Time
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      short_id:
+        type: string
+      source:
+        type: string
+      status:
+        type: string
+      subject:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API для системы поддержки пользователей с тикетами и перепиской
+  title: Helpdesk API
+  version: "1.0"
+paths:
+  /consumers/token/:
+    post:
+      consumes:
+      - application/json
+      description: Регистрирует или возвращает токен для пользователя по Telegram
+        ID
+      parameters:
+      - description: Telegram ID пользователя
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.TokenInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'access: JWT-токен'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить JWT-токен для пользователя
+      tags:
+      - auth
+  /logout/:
+    post:
+      description: Подтверждает выход оператора; клиент должен удалить токен
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Успешный выход'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Выход оператора
+      tags:
+      - auth
+  /tickets/:
+    get:
+      description: Возвращает все тикеты для оператора или тикеты текущего пользователя
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Ticket'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить список тикетов
+      tags:
+      - tickets
+  /tickets/{ticket_id}/close/:
+    post:
+      description: Закрывает указанный тикет
+      parameters:
+      - description: ID тикета
+        in: path
+        name: ticket_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Ticket'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Закрыть тикет
+      tags:
+      - tickets
+  /tickets/{ticket_id}/messages/:
+    get:
+      description: Возвращает все сообщения для указанного тикета
+      parameters:
+      - description: ID тикета
+        in: path
+        name: ticket_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Message'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить историю сообщений тикета
+      tags:
+      - messages
+    post:
+      consumes:
+      - application/json
+      description: Добавляет сообщение в указанный тикет
+      parameters:
+      - description: ID тикета
+        in: path
+        name: ticket_id
+        required: true
+        type: string
+      - description: Данные сообщения
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.addMessageInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Message'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Добавить сообщение в тикет
+      tags:
+      - messages
+  /tickets/create:
+    post:
+      consumes:
+      - application/json
+      description: Создает тикет от текущего пользователя
+      parameters:
+      - description: Данные тикета
+        in: body
+        name: ticket
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.createTicketInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Ticket'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать новый тикет
+      tags:
+      - tickets
+  /token/:
+    post:
+      consumes:
+      - application/json
+      description: Авторизует оператора по логину и паролю, возвращает JWT-токен
+      parameters:
+      - description: Данные оператора
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.OperatorLoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'access: JWT-токен'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Логин оператора
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

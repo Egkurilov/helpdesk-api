@@ -1,0 +1,682 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API для системы поддержки пользователей с тикетами и перепиской",
+        "title": "Helpdesk API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api",
+    "paths": {
+        "/consumers/token/": {
+            "post": {
+                "description": "Регистрирует или возвращает токен для пользователя по Telegram ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Получить JWT-токен для пользователя",
+                "parameters": [
+                    {
+                        "description": "Telegram ID пользователя",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.TokenInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "access: JWT-токен",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/logout/": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Подтверждает выход оператора; клиент должен удалить токен",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Выход оператора",
+                "responses": {
+                    "200": {
+                        "description": "message: Успешный выход",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tickets/": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает все тикеты для оператора или тикеты текущего пользователя",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Получить список тикетов",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Ticket"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tickets/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Создает тикет от текущего пользователя",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Создать новый тикет",
+                "parameters": [
+                    {
+                        "description": "Данные тикета",
+                        "name": "ticket",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.createTicketInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Ticket"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tickets/{ticket_id}/close/": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Закрывает указанный тикет",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tickets"
+                ],
+                "summary": "Закрыть тикет",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID тикета",
+                        "name": "ticket_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Ticket"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tickets/{ticket_id}/messages/": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает все сообщения для указанного тикета",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Получить историю сообщений тикета",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID тикета",
+                        "name": "ticket_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Message"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Добавляет сообщение в указанный тикет",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "messages"
+                ],
+                "summary": "Добавить сообщение в тикет",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID тикета",
+                        "name": "ticket_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные сообщения",
+                        "name": "message",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.addMessageInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Message"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/token/": {
+            "post": {
+                "description": "Авторизует оператора по логину и паролю, возвращает JWT-токен",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Логин оператора",
+                "parameters": [
+                    {
+                        "description": "Данные оператора",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.OperatorLoginInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "access: JWT-токен",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handlers.OperatorLoginInput": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "securepassword"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "operator1"
+                }
+            }
+        },
+        "handlers.TokenInput": {
+            "type": "object",
+            "required": [
+                "telegram_id"
+            ],
+            "properties": {
+                "telegram_id": {
+                    "type": "string",
+                    "example": "88376478"
+                }
+            }
+        },
+        "handlers.addMessageInput": {
+            "type": "object",
+            "required": [
+                "content",
+                "recipient",
+                "sender"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "example": "Сообщение"
+                },
+                "recipient": {
+                    "type": "string",
+                    "example": "operator"
+                },
+                "sender": {
+                    "type": "string",
+                    "example": "user"
+                }
+            }
+        },
+        "handlers.createTicketInput": {
+            "type": "object",
+            "required": [
+                "description",
+                "source",
+                "subject"
+            ],
+            "properties": {
+                "description": {
+                    "description": "Описание проблемы",
+                    "type": "string",
+                    "example": "Описание проблемы..."
+                },
+                "source": {
+                    "description": "Источник тикета",
+                    "type": "string",
+                    "example": "Telegram"
+                },
+                "subject": {
+                    "description": "Тема тикета",
+                    "type": "string",
+                    "example": "Проблема с продуктом"
+                }
+            }
+        },
+        "models.Message": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "Заменяем gorm.DeletedAt на *time.Time",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "recipient": {
+                    "type": "string"
+                },
+                "sender": {
+                    "type": "string"
+                },
+                "ticket_id": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Ticket": {
+            "type": "object",
+            "properties": {
+                "closed_at": {
+                    "type": "string"
+                },
+                "closed_by": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "Заменяем gorm.DeletedAt на *time.Time",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "short_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

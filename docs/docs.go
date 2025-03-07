@@ -648,7 +648,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "deleted_at": {
-                    "description": "Заменяем gorm.DeletedAt на *time.Time",
+                    "description": "Изменено на time.Time",
                     "type": "string"
                 },
                 "description": {

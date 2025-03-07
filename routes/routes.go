@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"helpdesk-api/config"
@@ -23,7 +24,6 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB, cfg *config.Config, logger *lo
 	protected := router.Group("/api")
 	protected.Use(middleware.JWTMiddleware(cfg.JWTSecret))
 	{
-		// Общие маршруты
 		protected.POST("/tickets/create", func(c *gin.Context) {
 			handlers.CreateTicket(c, db)
 		})
@@ -42,19 +42,28 @@ func SetupRoutes(router *gin.Engine, db *gorm.DB, cfg *config.Config, logger *lo
 		protected.POST("/logout/", func(c *gin.Context) {
 			handlers.Logout(c, db, cfg)
 		})
-
-		// Маршруты только для операторов
+		public.POST("/whitelist", func(c *gin.Context) {
+			handlers.AddWhitelistRequest(c, db)
+		})
 		operator := protected.Group("/operator")
 		operator.Use(operatorMiddleware())
 		{
 			operator.POST("/ticket/:ticket_id/close/", func(c *gin.Context) {
 				handlers.CloseTicketOperator(c, db)
 			})
+			operator.POST("/whitelist/:telegram_id/edit", func(c *gin.Context) {
+				handlers.EditWhitelist(c, db)
+			})
+			operator.GET("/whitelist/", func(c *gin.Context) {
+				handlers.GetWhitelistPending(c, db)
+			})
+			operator.GET("/whitelist/all", func(c *gin.Context) {
+				handlers.GetWhitelistAll(c, db)
+			})
 		}
 	}
 }
 
-// operatorMiddleware проверяет роль "operator"
 func operatorMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims, exists := c.Get("claims")
@@ -63,12 +72,21 @@ func operatorMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		role := claims.(map[string]interface{})["role"].(string)
-		if role != "operator" {
+
+		jwtClaims, ok := claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(500, gin.H{"error": "Invalid claims type"})
+			c.Abort()
+			return
+		}
+
+		role, ok := jwtClaims["role"].(string)
+		if !ok || role != "operator" {
 			c.JSON(403, gin.H{"error": "Forbidden: Operator access required"})
 			c.Abort()
 			return
 		}
+
 		c.Next()
 	}
 }

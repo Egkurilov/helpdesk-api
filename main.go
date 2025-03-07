@@ -36,7 +36,7 @@ func main() {
 		logger.Fatal("Ошибка подключения к базе данных: ", err)
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Ticket{}, &models.Message{}, &models.Operator{})
+	err = db.AutoMigrate(&models.User{}, &models.Ticket{}, &models.Message{}, &models.Operator{}, &models.Whitelist{})
 	if err != nil {
 		logger.Fatal("Ошибка миграции: ", err)
 	}
@@ -54,7 +54,7 @@ func main() {
 
 	// Настройка CORS
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8001", "http://localhost:8000"}, // Разрешаем фронтенд
+		AllowOrigins:     []string{"http://localhost:8001", "http://localhost:8000", "https://admin.wallet.shaneque.ru"}, // Разрешаем фронтенд
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

@@ -2,468 +2,648 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Helpdesk Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Workspace - Helpdesk</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body {
-            display: flex;
-            font-family: Arial, sans-serif;
+        html, body {
+            height: 100%;
             margin: 0;
-            padding: 10px;
+            background-color: #f8f9fa;
         }
-        .half {
-            width: 50%;
+        .container-fluid {
+            height: 100%;
+        }
+        .sidebar {
+            height: 100vh;
+            background-color: #343a40;
+            color: white;
+            padding-top: 20px;
+            position: fixed;
+            width: 16.66%;
+        }
+        .sidebar .nav-link {
+            color: #adb5bd;
+        }
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: #495057;
+        }
+        .content {
             padding: 20px;
-            border: 1px solid #ccc;
-            height: 90vh;
+            height: 100%;
             overflow-y: auto;
+            margin-left: 16.66%;
         }
-        .left { background-color: #f0f8ff; }
-        .right { background-color: #f5f5f5; }
-        textarea { width: 100%; height: 80px; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
+        .ticket-list, .whitelist-list {
+            height: 85vh;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            background-color: white;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th { background-color: #f2f2f2; }
-        .chat {
-            border: 1px solid #ccc;
+        .ticket-item {
             padding: 10px;
-            height: 200px;
-            overflow-y: auto;
-            margin-top: 10px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
         }
-        .error { color: red; }
+        .ticket-item:hover {
+            background-color: #f1f3f5;
+        }
+        .ticket-item.active {
+            background-color: #e9ecef;
+        }
+        .chat-area {
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            background-color: white;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .chat-message.user {
+            background-color: #d1e7dd;
+            align-self: flex-end;
+        }
+        .chat-message.operator {
+            background-color: #cce5ff;
+            align-self: flex-start;
+        }
+        .chat-input {
+            padding: 10px;
+            border-top: 1px solid #dee2e6;
+        }
+        .error { color: #dc3545; }
+        .table-sm th, .table-sm td {
+            font-size: 0.85rem;
+            padding: 0.5rem;
+        }
     </style>
 </head>
 <body>
-<div class="half left">
-    <h2>User Panel</h2>
-    <form id="user-login-form">
-        <h3>Login</h3>
-        Telegram ID: <input type="text" name="telegram_id" required>
-        <button type="submit">Login</button>
-    </form>
-    <form id="user-ticket-form" style="display: none;">
-        <h3>Create Ticket</h3>
-        Subject: <input type="text" name="subject" required>
-        Description: <textarea name="description" required></textarea>
-        Source: <input type="text" name="source" value="Web" required>
-        <button type="submit">Create</button>
-    </form>
-    <div id="user-tickets" style="display: none;">
-        <h3>Your Tickets</h3>
-        <button onclick="fetchUserTickets()">Refresh Tickets</button>
-        <table id="user-tickets-table">
-            <thead>
-            <tr><th>ID</th><th>Subject</th><th>Status</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Боковая панель -->
+        <nav class="col-md-3 col-lg-2 sidebar">
+            <h4 class="text-center">Operator Workspace</h4>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" onclick="filterTickets('open')">Open Tickets</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="filterTickets('closed')">Closed Tickets</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showWhitelist()">Whitelist Pending</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showAllWhitelist()">All Whitelist</a>
+                </li>
+                <li class="nav-item mt-5">
+                    <form id="operator-login-form" class="px-3">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" name="username" placeholder="Username" required>
+                        </div>
+                        <div class="mb-3">
+                            <input type="password" class="form-control" name="password" placeholder="Password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Login</button>
+                    </form>
+                    <form id="operator-logout-form" class="px-3 mt-3" style="display: none;">
+                        <button type="submit" class="btn btn-warning w-100">Logout</button>
+                    </form>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Основной контент -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 content">
+            <div id="tickets-panel">
+                <div class="row">
+                    <!-- Список тикетов -->
+                    <div class="col-md-4">
+                        <h3>Tickets</h3>
+                        <div class="ticket-list" id="ticket-list"></div>
+                        <div class="error mt-2" id="operator-error"></div>
+                    </div>
+
+                    <!-- Чат с тикетом -->
+                    <div class="col-md-8">
+                        <h3 id="chat-title">Select a Ticket</h3>
+                        <div class="chat-area" id="chat-area" style="display: none;">
+                            <div class="chat-messages" id="chat-messages"></div>
+                            <div class="chat-input">
+                                <form id="operator-message-form" class="d-flex">
+                                    <textarea class="form-control me-2" name="content" placeholder="Type your message..." required></textarea>
+                                    <button type="submit" class="btn btn-primary me-2">Send</button>
+                                    <button type="button" class="btn btn-danger" onclick="closeTicket()">Close Ticket</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="whitelist-panel" style="display: none;">
+                <h3>Whitelist Pending</h3>
+                <div class="whitelist-list" id="whitelist-list"></div>
+            </div>
+            <div id="whitelist-all-panel" style="display: none;">
+                <h3>All Whitelist Entries</h3>
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="whitelist-search" placeholder="Search by Telegram ID, Name, or Username" onkeyup="filterWhitelistAll()">
+                    <select class="form-control mt-2" id="whitelist-filter" onchange="filterWhitelistAll()">
+                        <option value="all">All Statuses</option>
+                        <option value="0">Pending</option>
+                        <option value="1">Approved</option>
+                        <option value="2">Denied</option>
+                    </select>
+                </div>
+                <div class="whitelist-list" id="whitelist-all-list"></div>
+            </div>
+        </main>
     </div>
-    <form id="user-message-form" style="display: none;">
-        <h3>Send Message</h3>
-        Ticket ID: <input type="text" name="ticket_id" required>
-        Content: <textarea name="content" required></textarea>
-        <button type="submit">Send</button>
-    </form>
-    <form id="user-close-ticket-form" style="display: none;">
-        <h3>Close Ticket</h3>
-        Ticket ID: <input type="text" name="ticket_id" required>
-        <button type="submit">Close Ticket</button>
-    </form>
-    <div class="error" id="user-error"></div>
-</div>
-<div class="half right">
-    <h2>Operator Panel</h2>
-    <form id="operator-login-form">
-        <h3>Login</h3>
-        Username: <input type="text" name="username" required>
-        Password: <input type="password" name="password" required>
-        <button type="submit">Login</button>
-    </form>
-    <div id="operator-tickets" style="display: none;">
-        <h3>All Tickets</h3>
-        <button onclick="fetchOperatorTickets()">Refresh Tickets</button>
-        <table id="operator-tickets-table">
-            <thead>
-            <tr><th>ID</th><th>User ID</th><th>Subject</th><th>Status</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <form id="operator-messages-form" style="display: none;">
-        <h3>Ticket Messages</h3>
-        Ticket ID: <input type="text" name="ticket_id" required>
-        <button type="submit">Load Messages</button>
-        <div class="chat" id="operator-chat"></div>
-    </form>
-    <form id="operator-message-form" style="display: none;">
-        <h3>Send Message</h3>
-        Ticket ID: <input type="text" name="ticket_id" required>
-        Content: <textarea name="content" required></textarea>
-        <button type="submit">Send</button>
-    </form>
-    <form id="operator-close-ticket-form" style="display: none;">
-        <h3>Close Ticket</h3>
-        Ticket ID: <input type="text" name="ticket_id" required>
-        <button type="submit">Close Ticket</button>
-    </form>
-    <form id="operator-logout-form" style="display: none;">
-        <h3>Logout</h3>
-        <button type="submit">Logout</button>
-    </form>
-    <div class="error" id="operator-error"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    let userToken = null;
     let operatorToken = null;
-    const API_BASE_URL = "http://localhost:8080"; // Go-сервер на 8080
+    let selectedTicketId = null;
+    const API_BASE_URL = "http://admin.wallet.shaneque.ru";
+    let currentFilter = "open";
+    let whitelistInterval = null;
+    let allWhitelistData = []; // Для хранения данных для фильтрации и сортировки
 
-    // User Functions
-    document.getElementById("user-login-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        console.log("User login form submitted");
-        const formData = new FormData(e.target);
-        const telegramId = formData.get("telegram_id");
-        console.log("Telegram ID:", telegramId);
-        const loginUrl = `${API_BASE_URL}/api/consumers/token/`;
-        console.log("Sending login request to:", loginUrl);
-        try {
-            const response = await fetch(loginUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ telegram_id: telegramId })
-            });
-            console.log("Login response status:", response.status);
-            const data = await handleResponse(response, "user-error");
-            if (data && data.access) {
-                userToken = data.access;
-                console.log("User logged in, token:", userToken);
-                toggleUserForms(true);
-                fetchUserTickets();
-            } else {
-                console.log("Login failed, no access token returned");
-            }
-        } catch (error) {
-            console.error("Login network error:", error);
-            document.getElementById("user-error").textContent = `Network error: ${error.message}`;
-        }
-    });
-
-    document.getElementById("user-ticket-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!userToken) {
-            document.getElementById("user-error").textContent = "Please login first!";
-            return;
-        }
-        const formData = new FormData(e.target);
-        const ticketData = {
-            subject: formData.get("subject"),
-            description: formData.get("description"),
-            source: formData.get("source")
-        };
-        const response = await fetch(`${API_BASE_URL}/api/tickets/create`, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${userToken}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(ticketData)
-        });
-        const data = await handleResponse(response, "user-error");
-        if (data && data.id) {
-            fetchUserTickets();
-            e.target.reset();
-        }
-    });
-
-    document.getElementById("user-message-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        console.log("Send Message clicked (User), userToken:", userToken);
-        if (!userToken) {
-            document.getElementById("user-error").textContent = "Please login first!";
-            return;
-        }
-        const formData = new FormData(e.target);
-        const ticketId = formData.get("ticket_id");
-        const content = formData.get("content");
-        const messageData = {
-            sender: "user",
-            recipient: "operator",
-            content: content
-        };
-        console.log("Ticket ID:", ticketId);
-        console.log("Message content:", content);
-        console.log("Request body:", JSON.stringify(messageData));
-        if (!ticketId || !content) {
-            document.getElementById("user-error").textContent = "Please enter ticket ID and content!";
-            return;
-        }
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/messages/`, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${userToken}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(messageData)
-            });
-            console.log("Response status:", response.status);
-            const data = await handleResponse(response, "user-error");
-            console.log("Message sent:", data);
-            if (data) {
-                document.getElementById("user-message-form").reset();
-            }
-        } catch (error) {
-            console.error("Send Message error (User):", error);
-            document.getElementById("user-error").textContent = `Error: ${error.message}`;
-        }
-    });
-
-    document.getElementById("user-close-ticket-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        console.log("Close Ticket clicked (User), userToken:", userToken);
-        if (!userToken) {
-            document.getElementById("user-error").textContent = "Please login first!";
-            return;
-        }
-        const formData = new FormData(e.target);
-        const ticketId = formData.get("ticket_id");
-        console.log("Ticket ID:", ticketId);
-        if (!ticketId) {
-            document.getElementById("user-error").textContent = "Please enter a ticket ID!";
-            return;
-        }
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/close/`, {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${userToken}` }
-            });
-            console.log("Response status:", response.status);
-            const data = await handleResponse(response, "user-error");
-            console.log("Ticket closed:", data);
-            if (data) {
-                fetchUserTickets();
-                document.getElementById("user-close-ticket-form").reset();
-            }
-        } catch (error) {
-            console.error("Close Ticket error (User):", error);
-            document.getElementById("user-error").textContent = `Error: ${error.message}`;
-        }
-    });
-
-    async function fetchUserTickets() {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/`, {
-            method: "GET",
-            headers: { "Authorization": `Bearer ${userToken}` }
-        });
-        const data = await handleResponse(response, "user-error");
-        if (data) {
-            const tbody = document.querySelector("#user-tickets-table tbody");
-            tbody.innerHTML = "";
-            data.forEach(ticket => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${ticket.id}</td><td>${ticket.subject}</td><td>${ticket.status}</td>`;
-                tbody.appendChild(tr);
-            });
-        }
-    }
-
-    // Operator Functions
+    // Логин оператора
     document.getElementById("operator-login-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        console.log("Operator login form submitted");
         const formData = new FormData(e.target);
-        const loginData = {
-            username: formData.get("username"),
-            password: formData.get("password")
-        };
-        const loginUrl = `${API_BASE_URL}/api/token/`;
-        console.log("Sending login request to:", loginUrl);
         try {
-            const response = await fetch(loginUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(loginData)
-            });
-            console.log("Login response status:", response.status);
+            const response = await fetch(`${API_BASE_URL}/operator/login`, { method: "POST", body: formData });
             const data = await handleResponse(response, "operator-error");
             if (data && data.access) {
                 operatorToken = data.access;
-                console.log("Operator logged in, token:", operatorToken);
-                toggleOperatorForms(true);
-                fetchOperatorTickets();
-            } else {
-                console.log("Login failed, no access token returned");
+                localStorage.setItem("operatorToken", operatorToken);
+                toggleLoginForms(true);
+                fetchTickets();
             }
         } catch (error) {
-            console.error("Login error:", error);
             document.getElementById("operator-error").textContent = `Network error: ${error.message}`;
         }
     });
 
-    async function fetchOperatorTickets() {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/`, {
-            method: "GET",
-            headers: { "Authorization": `Bearer ${operatorToken}` }
-        });
-        const data = await handleResponse(response, "operator-error");
-        if (data) {
-            const tbody = document.querySelector("#operator-tickets-table tbody");
-            tbody.innerHTML = "";
-            data.forEach(ticket => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${ticket.id}</td><td>${ticket.user_id}</td><td>${ticket.subject}</td><td>${ticket.status}</td>`;
-                tbody.appendChild(tr);
-            });
-        }
-    }
-
-    document.getElementById("operator-messages-form").addEventListener("submit", async (e) => {
+    // Выход оператора
+    document.getElementById("operator-logout-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        console.log("Load Messages clicked, operatorToken:", operatorToken);
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) {
+            toggleLoginForms(false);
+            return;
+        }
+        try {
+            const formData = new FormData();
+            formData.append("token", operatorToken);
+            const response = await fetch(`${API_BASE_URL}/operator/logout`, { method: "POST", body: formData });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                operatorToken = null;
+                localStorage.removeItem("operatorToken");
+                toggleLoginForms(false);
+                document.getElementById("ticket-list").innerHTML = "";
+                document.getElementById("chat-area").style.display = "none";
+                document.getElementById("whitelist-panel").style.display = "none";
+                document.getElementById("whitelist-all-panel").style.display = "none";
+                document.getElementById("tickets-panel").style.display = "block";
+                clearInterval(whitelistInterval);
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    });
+
+    // Получение списка тикетов
+    async function fetchTickets() {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
         if (!operatorToken) {
             document.getElementById("operator-error").textContent = "Please login first!";
             return;
         }
-        const formData = new FormData(e.target);
-        const ticketId = formData.get("ticket_id");
-        console.log("Ticket ID:", ticketId);
-        if (!ticketId) {
-            document.getElementById("operator-error").textContent = "Please enter a ticket ID!";
-            return;
-        }
         try {
-            const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/messages/`, {
+            const response = await fetch(`${API_BASE_URL}/operator/tickets`, {
                 method: "GET",
                 headers: { "Authorization": `Bearer ${operatorToken}` }
             });
-            console.log("Response status:", response.status);
             const data = await handleResponse(response, "operator-error");
-            console.log("Response data:", data);
             if (data) {
-                const chat = document.getElementById("operator-chat");
-                chat.innerHTML = "";
-                data.forEach(msg => {
-                    const p = document.createElement("p");
-                    p.textContent = `${msg.sender} -> ${msg.recipient}: ${msg.content} (${msg.timestamp})`;
-                    chat.appendChild(p);
-                });
+                displayTickets(data);
             }
         } catch (error) {
-            console.error("Load Messages error:", error);
             document.getElementById("operator-error").textContent = `Error: ${error.message}`;
         }
-    });
+    }
 
+    // Фильтрация тикетов
+    function filterTickets(status) {
+        currentFilter = status;
+        document.querySelectorAll(".sidebar .nav-link").forEach(link => {
+            link.classList.remove("active");
+            if (link.getAttribute("onclick") === `filterTickets('${status}')`) link.classList.add("active");
+        });
+        document.getElementById("tickets-panel").style.display = "block";
+        document.getElementById("whitelist-panel").style.display = "none";
+        document.getElementById("whitelist-all-panel").style.display = "none";
+        fetchTickets();
+        clearInterval(whitelistInterval);
+    }
+
+    // Отображение тикетов
+    function displayTickets(tickets) {
+        const ticketList = document.getElementById("ticket-list");
+        ticketList.innerHTML = "";
+        const filteredTickets = tickets.filter(ticket => ticket.status.toLowerCase() === currentFilter);
+        if (!filteredTickets || filteredTickets.length === 0) {
+            ticketList.innerHTML = "<p>No tickets found.</p>";
+            return;
+        }
+        filteredTickets.forEach(ticket => {
+            const div = document.createElement("div");
+            div.className = `ticket-item ${selectedTicketId === ticket.id ? 'active' : ''}`;
+            div.innerHTML = `
+                <strong>#${ticket.id}</strong> - ${ticket.subject}<br>
+                <small>User ID: ${ticket.user_id} | Status: ${ticket.status}</small>
+            `;
+            div.onclick = () => selectTicket(ticket.id);
+            ticketList.appendChild(div);
+        });
+    }
+
+    // Выбор тикета
+    async function selectTicket(ticketId) {
+        selectedTicketId = ticketId;
+        fetchTickets();
+        document.getElementById("chat-title").textContent = `Ticket #${ticketId}`;
+        document.getElementById("chat-area").style.display = "flex";
+        await fetchMessages(ticketId);
+    }
+
+    // Получение сообщений
+    async function fetchMessages(ticketId) {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) return;
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/ticket/${ticketId}/messages`, {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${operatorToken}` }
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                const chatMessages = document.getElementById("chat-messages");
+                chatMessages.innerHTML = "";
+                data.forEach(msg => {
+                    const div = document.createElement("div");
+                    div.className = `chat-message ${msg.sender === "user" ? "user" : "operator"}`;
+                    div.textContent = `${msg.sender}: ${msg.content} (${msg.timestamp})`;
+                    chatMessages.appendChild(div);
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
+    // Отправка сообщения
     document.getElementById("operator-message-form").addEventListener("submit", async (e) => {
         e.preventDefault();
-        console.log("Send Message clicked (Operator), operatorToken:", operatorToken);
-        if (!operatorToken) {
-            document.getElementById("operator-error").textContent = "Please login first!";
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken || !selectedTicketId) {
+            document.getElementById("operator-error").textContent = "Please login and select a ticket!";
             return;
         }
         const formData = new FormData(e.target);
-        const ticketId = formData.get("ticket_id");
-        const content = formData.get("content");
-        const messageData = {
-            sender: "operator",
-            recipient: "user",
-            content: content
-        };
-        console.log("Ticket ID:", ticketId);
-        console.log("Message content:", content);
-        console.log("Request body:", JSON.stringify(messageData));
-        if (!ticketId || !content) {
-            document.getElementById("operator-error").textContent = "Please enter ticket ID and content!";
-            return;
-        }
+        formData.append("token", operatorToken);
+        formData.append("ticket_id", selectedTicketId);
         try {
-            const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/messages/`, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${operatorToken}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(messageData)
-            });
-            console.log("Response status:", response.status);
+            const response = await fetch(`${API_BASE_URL}/operator/message`, { method: "POST", body: formData });
             const data = await handleResponse(response, "operator-error");
-            console.log("Message sent:", data);
             if (data) {
-                document.getElementById("operator-message-form").reset();
+                e.target.reset();
+                fetchMessages(selectedTicketId);
             }
         } catch (error) {
-            console.error("Send Message error (Operator):", error);
             document.getElementById("operator-error").textContent = `Error: ${error.message}`;
         }
     });
 
-    document.getElementById("operator-close-ticket-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        console.log("Close Ticket clicked (Operator), operatorToken:", operatorToken);
-        if (!operatorToken) {
-            document.getElementById("operator-error").textContent = "Please login first!";
-            return;
-        }
-        const formData = new FormData(e.target);
-        const ticketId = formData.get("ticket_id");
-        console.log("Ticket ID:", ticketId);
-        console.log("Authorization header:", `Bearer ${operatorToken}`);
-        if (!ticketId) {
-            document.getElementById("operator-error").textContent = "Please enter a ticket ID!";
+    // Закрытие тикета
+    async function closeTicket() {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken || !selectedTicketId) {
+            document.getElementById("operator-error").textContent = "Please login and select a ticket!";
             return;
         }
         try {
-            const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/close/`, {
+            const formData = new FormData();
+            formData.append("token", operatorToken);
+            const response = await fetch(`${API_BASE_URL}/operator/ticket/${selectedTicketId}/close`, {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${operatorToken}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({})
+                body: formData
             });
-            console.log("Response status:", response.status);
             const data = await handleResponse(response, "operator-error");
-            console.log("Ticket closed:", data);
             if (data) {
-                fetchOperatorTickets();
-                document.getElementById("operator-close-ticket-form").reset();
+                fetchTickets();
+                document.getElementById("chat-area").style.display = "none";
+                document.getElementById("chat-title").textContent = "Select a Ticket";
+                selectedTicketId = null;
             }
         } catch (error) {
-            console.error("Close Ticket error (Operator):", error);
             document.getElementById("operator-error").textContent = `Error: ${error.message}`;
         }
-    });
+    }
 
-    document.getElementById("operator-logout-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        console.log("Logout clicked, operatorToken:", operatorToken);
-        if (!operatorToken) return;
-        const response = await fetch(`${API_BASE_URL}/api/logout/`, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${operatorToken}` }
+    // Показать Whitelist Pending
+    function showWhitelist() {
+        document.querySelectorAll(".sidebar .nav-link").forEach(link => {
+            link.classList.remove("active");
+            if (link.getAttribute("onclick") === "showWhitelist()") link.classList.add("active");
         });
-        const data = await handleResponse(response, "operator-error");
-        if (data && data.message) {
-            operatorToken = null;
-            toggleOperatorForms(false);
-        }
-    });
+        document.getElementById("tickets-panel").style.display = "none";
+        document.getElementById("whitelist-panel").style.display = "block";
+        document.getElementById("whitelist-all-panel").style.display = "none";
+        fetchWhitelistPending();
+        clearInterval(whitelistInterval);
+        whitelistInterval = setInterval(fetchWhitelistPending, 10000);
+    }
 
-    // Helper Functions
+    // Получение Whitelist Pending
+    async function fetchWhitelistPending() {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) {
+            document.getElementById("operator-error").textContent = "Please login first!";
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/whitelist`, {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${operatorToken}` }
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                displayWhitelist(data);
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
+    // Отображение Whitelist Pending (компактная таблица)
+    function displayWhitelist(requests) {
+        const whitelistList = document.getElementById("whitelist-list");
+        whitelistList.innerHTML = "";
+        const pendingRequests = requests.filter(req => req.permission === 0);
+        if (!pendingRequests || pendingRequests.length === 0) {
+            whitelistList.innerHTML = "<p>No pending requests.</p>";
+            return;
+        }
+
+        let table = document.createElement("table");
+        table.className = "table table-sm table-bordered";
+        let thead = document.createElement("thead");
+        thead.innerHTML = `
+            <tr>
+                <th>ID</th>
+                <th>Telegram ID</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Text</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        let tbody = document.createElement("tbody");
+        pendingRequests.forEach(req => {
+            let displayText = req.text.length > 20 ? req.text.substring(0, 20) + "..." : req.text;
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${req.id}</td>
+                <td>${req.telegram_id}</td>
+                <td>${req.first_name} ${req.last_name}</td>
+                <td>${req.username}</td>
+                <td>${displayText}</td>
+                <td>${new Date(req.create_date).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-success btn-sm me-1" onclick="approveWhitelist('${req.telegram_id}')">Approve</button>
+                    <button class="btn btn-danger btn-sm" onclick="denyWhitelist('${req.telegram_id}')">Deny</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        whitelistList.appendChild(table);
+    }
+
+    // Одобрение Whitelist
+    async function approveWhitelist(telegramId) {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) {
+            document.getElementById("operator-error").textContent = "Please login first!";
+            return;
+        }
+        try {
+            const formData = new FormData();
+            formData.append("perm", "true");
+            const response = await fetch(`${API_BASE_URL}/operator/whitelist/${telegramId}/edit`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${operatorToken}` },
+                body: formData
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                if (document.getElementById("whitelist-panel").style.display === "block") {
+                    fetchWhitelistPending();
+                } else {
+                    fetchWhitelistAll();
+                }
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
+    // Отклонение Whitelist
+    async function denyWhitelist(telegramId) {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) {
+            document.getElementById("operator-error").textContent = "Please login first!";
+            return;
+        }
+        try {
+            const formData = new FormData();
+            formData.append("perm", "false");
+            const response = await fetch(`${API_BASE_URL}/operator/whitelist/${telegramId}/edit`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${operatorToken}` },
+                body: formData
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                if (document.getElementById("whitelist-panel").style.display === "block") {
+                    fetchWhitelistPending();
+                } else {
+                    fetchWhitelistAll();
+                }
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
+    // Показать All Whitelist
+    function showAllWhitelist() {
+        document.querySelectorAll(".sidebar .nav-link").forEach(link => {
+            link.classList.remove("active");
+            if (link.getAttribute("onclick") === "showAllWhitelist()") link.classList.add("active");
+        });
+        document.getElementById("tickets-panel").style.display = "none";
+        document.getElementById("whitelist-panel").style.display = "none";
+        document.getElementById("whitelist-all-panel").style.display = "block";
+        fetchWhitelistAll();
+        clearInterval(whitelistInterval);
+    }
+
+    // Получение всех записей Whitelist
+    async function fetchWhitelistAll() {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) {
+            document.getElementById("operator-error").textContent = "Please login first!";
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/whitelist/all`, {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${operatorToken}` }
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                allWhitelistData = data;
+                displayWhitelistAll(allWhitelistData);
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
+    // Отображение всех записей Whitelist с фильтрацией и сортировкой
+    function displayWhitelistAll(requests) {
+        const whitelistList = document.getElementById("whitelist-all-list");
+        whitelistList.innerHTML = "";
+        if (!requests || requests.length === 0) {
+            whitelistList.innerHTML = "<p>No whitelist entries found.</p>";
+            return;
+        }
+
+        let table = document.createElement("table");
+        table.className = "table table-sm table-bordered";
+        let thead = document.createElement("thead");
+        thead.innerHTML = `
+            <tr>
+                <th onclick="sortWhitelistAll('id')">ID ↓</th>
+                <th onclick="sortWhitelistAll('telegram_id')">Telegram ID ↓</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Text</th>
+                <th>Status</th>
+                <th onclick="sortWhitelistAll('create_date')">Created ↓</th>
+                <th>Actions</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        let tbody = document.createElement("tbody");
+        requests.forEach(req => {
+            let status = req.permission === 0 ? "Pending" : req.permission === 1 ? "Approved" : "Denied";
+            let statusClass = req.permission === 0 ? "text-warning" : req.permission === 1 ? "text-success" : "text-danger";
+            let displayText = req.text.length > 20 ? req.text.substring(0, 20) + "..." : req.text;
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${req.id}</td>
+                <td>${req.telegram_id}</td>
+                <td>${req.first_name} ${req.last_name}</td>
+                <td>${req.username}</td>
+                <td>${displayText}</td>
+                <td class="${statusClass}">${status}</td>
+                <td>${new Date(req.create_date).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-success btn-sm me-1" onclick="approveWhitelist('${req.telegram_id}')">Approve</button>
+                    <button class="btn btn-danger btn-sm" onclick="denyWhitelist('${req.telegram_id}')">Deny</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        whitelistList.appendChild(table);
+    }
+
+    // Фильтрация All Whitelist
+    function filterWhitelistAll() {
+        const searchValue = document.getElementById("whitelist-search").value.toLowerCase();
+        const filterValue = document.getElementById("whitelist-filter").value;
+        let filteredData = [...allWhitelistData];
+
+        // Фильтр по поиску
+        if (searchValue) {
+            filteredData = filteredData.filter(req =>
+                req.telegram_id.toString().includes(searchValue) ||
+                `${req.first_name} ${req.last_name}`.toLowerCase().includes(searchValue) ||
+                req.username.toLowerCase().includes(searchValue)
+            );
+        }
+
+        // Фильтр по статусу
+        if (filterValue !== "all") {
+            filteredData = filteredData.filter(req => req.permission === parseInt(filterValue));
+        }
+
+        displayWhitelistAll(filteredData);
+    }
+
+    // Сортировка All Whitelist
+    let sortDirection = {};
+    function sortWhitelistAll(field) {
+        sortDirection[field] = !sortDirection[field]; // Переключение направления
+        let sortedData = [...allWhitelistData];
+        sortedData.sort((a, b) => {
+            let valA = field === "create_date" ? new Date(a[field]) : a[field];
+            let valB = field === "create_date" ? new Date(b[field]) : b[field];
+            if (sortDirection[field]) {
+                return valA > valB ? 1 : -1;
+            } else {
+                return valA < valB ? 1 : -1;
+            }
+        });
+        displayWhitelistAll(sortedData);
+    }
+
+    // Обработка ответа
     async function handleResponse(response, errorId) {
         const errorDiv = document.getElementById(errorId);
+        let text = "";
         try {
-            const data = await response.json();
-            console.log("Response data:", data);
+            text = await response.text();
+            console.log(`Raw response from ${response.url}:`, text);
+            const data = JSON.parse(text);
             if (response.ok) {
                 errorDiv.textContent = "";
                 return data;
@@ -472,28 +652,37 @@
                 return null;
             }
         } catch (error) {
-            console.error("Failed to parse response:", error);
-            errorDiv.textContent = "Invalid response from server";
+            errorDiv.textContent = `Invalid response from server: ${error.message} (Raw: ${text})`;
             return null;
         }
     }
 
-    function toggleUserForms(show) {
-        document.getElementById("user-login-form").style.display = show ? "none" : "block";
-        document.getElementById("user-ticket-form").style.display = show ? "block" : "none";
-        document.getElementById("user-tickets").style.display = show ? "block" : "none";
-        document.getElementById("user-message-form").style.display = show ? "block" : "none";
-        document.getElementById("user-close-ticket-form").style.display = show ? "block" : "none";
-    }
-
-    function toggleOperatorForms(show) {
+    // Переключение форм логина
+    function toggleLoginForms(show) {
         document.getElementById("operator-login-form").style.display = show ? "none" : "block";
-        document.getElementById("operator-tickets").style.display = show ? "block" : "none";
-        document.getElementById("operator-messages-form").style.display = show ? "block" : "none";
-        document.getElementById("operator-message-form").style.display = show ? "block" : "none";
-        document.getElementById("operator-close-ticket-form").style.display = show ? "block" : "none";
         document.getElementById("operator-logout-form").style.display = show ? "block" : "none";
     }
+
+    // Инициализация
+    operatorToken = localStorage.getItem("operatorToken");
+    if (operatorToken) {
+        toggleLoginForms(true);
+        fetchTickets();
+    }
+
+    // Восстановление состояния при загрузке страницы
+    window.onload = function() {
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'open' || hash === 'closed') {
+            filterTickets(hash);
+        } else if (hash === 'whitelist') {
+            showWhitelist();
+        } else if (hash === 'all-whitelist') {
+            showAllWhitelist();
+        } else {
+            filterTickets('open');
+        }
+    };
 </script>
 </body>
 </html>

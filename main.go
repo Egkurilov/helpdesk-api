@@ -36,9 +36,52 @@ func main() {
 		logger.Fatal("Ошибка подключения к базе данных: ", err)
 	}
 
-	err = db.AutoMigrate(&models.User{}, &models.Ticket{}, &models.Message{}, &models.Operator{}, &models.Whitelist{})
+	// Базовая миграция моделей
+	err = db.AutoMigrate(&models.User{}, &models.Ticket{}, &models.Message{}, &models.Operator{},
+		&models.Whitelist{}, &models.Endpoint{})
 	if err != nil {
 		logger.Fatal("Ошибка миграции: ", err)
+	}
+	logger.Info("Database migration completed successfully")
+
+	// Проверяем, существует ли таблица whitelists
+	migrator := db.Migrator()
+	if !migrator.HasTable(&models.Whitelist{}) {
+		logger.Fatal("Table 'whitelists' was not created by AutoMigrate")
+	}
+	logger.Info("Table 'whitelists' exists")
+
+	// Проверяем, существует ли столбец `from`, и добавляем его, если нет
+	if !migrator.HasColumn(&models.Whitelist{}, "From") {
+		err = migrator.AddColumn(&models.Whitelist{}, "From")
+		if err != nil {
+			logger.Fatal("Failed to add 'from' column: ", err)
+		}
+		logger.Info("Column 'from' added to whitelists")
+	}
+
+	// Удаление дубликатов перед созданием уникального индекса
+	err = db.Exec(`
+        DELETE FROM whitelists
+        WHERE id NOT IN (
+            SELECT MIN(id)
+            FROM whitelists
+            GROUP BY telegram_id, "from"
+        )`).Error
+	if err != nil {
+		logger.Fatal("Failed to remove duplicate whitelist entries: ", err)
+	}
+	logger.Info("Duplicate whitelist entries removed successfully")
+
+	// Добавляем уникальный индекс для TelegramID и From, если его ещё нет
+	if !migrator.HasIndex(&models.Whitelist{}, "idx_telegram_from") {
+		err = db.Exec(`CREATE UNIQUE INDEX idx_telegram_from ON whitelists (telegram_id, "from")`).Error
+		if err != nil {
+			logger.Fatal("Failed to create unique index idx_telegram_from: ", err)
+		}
+		logger.Info("Unique index idx_telegram_from created successfully")
+	} else {
+		logger.Info("Unique index idx_telegram_from already exists")
 	}
 
 	// Создание тестового оператора
@@ -54,7 +97,7 @@ func main() {
 
 	// Настройка CORS
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8001", "http://localhost:8000", "https://admin.wallet.shaneque.ru"}, // Разрешаем фронтенд
+		AllowOrigins:     []string{"http://localhost:8001", "http://localhost:8000", "http://admin.wallet.shaneque.ru"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -62,7 +105,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	routes.SetupRoutes(router, db, cfg, logger) // Здесь добавится новый маршрут для оператора
+	routes.SetupRoutes(router, db, cfg, logger)
 
 	// Swagger
 	router.GET("/swagger/*any", func(c *gin.Context) {

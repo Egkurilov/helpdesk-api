@@ -5,6 +5,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+COPY config/endpoints.json /app/config/endpoints.json
+
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o helpdesk-api .
 

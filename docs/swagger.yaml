@@ -20,6 +20,52 @@ definitions:
     required:
     - telegram_id
     type: object
+  handlers.WhitelistEditInput:
+    properties:
+      perm:
+        type: boolean
+    required:
+    - perm
+    type: object
+  handlers.WhitelistRequestInput:
+    properties:
+      chatId:
+        type: integer
+      from:
+        enum:
+        - dev
+        - ift
+        - psi
+        - prom
+        type: string
+      text:
+        type: string
+      user:
+        properties:
+          first_name:
+            type: string
+          id:
+            type: integer
+          is_bot:
+            type: boolean
+          language_code:
+            type: string
+          last_name:
+            type: string
+          username:
+            type: string
+        required:
+        - first_name
+        - id
+        - last_name
+        - username
+        type: object
+    required:
+    - chatId
+    - from
+    - text
+    - user
+    type: object
   handlers.addMessageInput:
     properties:
       content:
@@ -104,6 +150,47 @@ definitions:
         type: string
       user_id:
         type: integer
+    type: object
+  models.Whitelist:
+    properties:
+      chat_id:
+        type: integer
+      create_date:
+        type: string
+      deleted_at:
+        type: string
+      first_name:
+        description: изменено
+        type: string
+      from:
+        description: Уникальный индекс
+        enum:
+        - dev
+        - ift
+        - psi
+        - prom
+        type: string
+      id:
+        type: integer
+      language_code:
+        type: string
+      last_name:
+        description: если необходимо
+        type: string
+      permission:
+        type: integer
+      telegram_id:
+        description: Уникальный индекс
+        type: string
+      text:
+        type: string
+      updated_at:
+        type: string
+      username:
+        description: если необходимо
+        type: string
+    required:
+    - from
     type: object
 host: localhost:8080
 info:
@@ -441,6 +528,146 @@ paths:
       summary: Логин оператора
       tags:
       - auth
+  /whitelist:
+    get:
+      description: Возвращает все записи whitelist со статусом "Pending" (permission
+        = 0)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Whitelist'
+            type: array
+        "500":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить список заявок в ожидании
+      tags:
+      - whitelist
+    post:
+      consumes:
+      - application/json
+      description: Добавляет новую заявку в whitelist со статусом "Pending" (permission
+        = 0). Если заявка уже существует (по telegram_id и from), возвращает 200 OK.
+      parameters:
+      - description: Данные заявки
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.WhitelistRequestInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: Запрос уже существует'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "201":
+          description: 'message: Запрос создан, id: <id>'
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать новую заявку в whitelist
+      tags:
+      - whitelist
+  /whitelist/{telegram_id}/edit:
+    post:
+      consumes:
+      - application/json
+      description: Изменяет статус заявки (Approved = 1 или Denied = 2) для указанного
+        Telegram ID
+      parameters:
+      - description: Telegram ID пользователя
+        in: path
+        name: telegram_id
+        required: true
+        type: string
+      - description: Новое значение разрешения
+        in: body
+        name: permission
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.WhitelistEditInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message: OK'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Обновить статус заявки в whitelist
+      tags:
+      - whitelist
+  /whitelist/all:
+    get:
+      description: Возвращает все записи whitelist независимо от статуса
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Whitelist'
+            type: array
+        "500":
+          description: error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить все записи whitelist
+      tags:
+      - whitelist
 securityDefinitions:
   BearerAuth:
     in: header

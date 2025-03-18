@@ -35,7 +35,7 @@
             overflow-y: auto;
             margin-left: 16.66%;
         }
-        .ticket-list, .whitelist-list {
+        .ticket-list, .whitelist-list, .settings-list {
             height: 85vh;
             overflow-y: auto;
             border: 1px solid #dee2e6;
@@ -89,6 +89,23 @@
             font-size: 0.85rem;
             padding: 0.5rem;
         }
+        #settings-section {
+            padding: 20px;
+        }
+        #settings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        #settings-table th, #settings-table td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: left;
+        }
+        #addSettingsForm input {
+            margin-right: 10px;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
@@ -109,6 +126,9 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#" onclick="showAllWhitelist()">All Whitelist</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showSettings()">Settings</a>
                 </li>
                 <li class="nav-item mt-5">
                     <form id="operator-login-form" class="px-3">
@@ -131,14 +151,11 @@
         <main class="col-md-9 ms-sm-auto col-lg-10 content">
             <div id="tickets-panel">
                 <div class="row">
-                    <!-- Список тикетов -->
                     <div class="col-md-4">
                         <h3>Tickets</h3>
                         <div class="ticket-list" id="ticket-list"></div>
                         <div class="error mt-2" id="operator-error"></div>
                     </div>
-
-                    <!-- Чат с тикетом -->
                     <div class="col-md-8">
                         <h3 id="chat-title">Select a Ticket</h3>
                         <div class="chat-area" id="chat-area" style="display: none;">
@@ -164,12 +181,33 @@
                     <input type="text" class="form-control" id="whitelist-search" placeholder="Search by Telegram ID, Name, or Username" onkeyup="filterWhitelistAll()">
                     <select class="form-control mt-2" id="whitelist-filter" onchange="filterWhitelistAll()">
                         <option value="all">All Statuses</option>
-                        <option value="0">Pending</option>
-                        <option value="1">Approved</option>
-                        <option value="2">Denied</option>
+                        <option value="pending">Pending</option>
+                        <option value="approve">Approved</option>
+                        <option value="deny">Denied</option>
                     </select>
                 </div>
                 <div class="whitelist-list" id="whitelist-all-list"></div>
+            </div>
+            <div id="settings-section" style="display: none;">
+                <h3>Settings</h3>
+                <table id="settings-table" class="table table-bordered">
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <h4>Add New Endpoint</h4>
+                <form id="addSettingsForm" class="mb-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="setting-name" placeholder="Name" required>
+                        <input type="text" class="form-control" id="setting-url" placeholder="URL" required>
+                        <button type="submit" class="btn btn-success">Add</button>
+                    </div>
+                </form>
             </div>
         </main>
     </div>
@@ -179,10 +217,10 @@
 <script>
     let operatorToken = null;
     let selectedTicketId = null;
-    const API_BASE_URL = "http://admin.wallet.shaneque.ru";
+    const API_BASE_URL = "http://admin.wallet.shaneque.ru"; // Убедитесь, что порт соответствует вашему FastAPI
     let currentFilter = "open";
     let whitelistInterval = null;
-    let allWhitelistData = []; // Для хранения данных для фильтрации и сортировки
+    let allWhitelistData = [];
 
     // Логин оператора
     document.getElementById("operator-login-form").addEventListener("submit", async (e) => {
@@ -221,9 +259,6 @@
                 toggleLoginForms(false);
                 document.getElementById("ticket-list").innerHTML = "";
                 document.getElementById("chat-area").style.display = "none";
-                document.getElementById("whitelist-panel").style.display = "none";
-                document.getElementById("whitelist-all-panel").style.display = "none";
-                document.getElementById("tickets-panel").style.display = "block";
                 clearInterval(whitelistInterval);
             }
         } catch (error) {
@@ -231,7 +266,7 @@
         }
     });
 
-    // Получение списка тикетов
+    // Получение тикетов
     async function fetchTickets() {
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
         if (!operatorToken) {
@@ -240,7 +275,6 @@
         }
         try {
             const response = await fetch(`${API_BASE_URL}/operator/tickets`, {
-                method: "GET",
                 headers: { "Authorization": `Bearer ${operatorToken}` }
             });
             const data = await handleResponse(response, "operator-error");
@@ -248,7 +282,7 @@
                 displayTickets(data);
             }
         } catch (error) {
-            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+            document.getElementById("operator-error").textContent = `Network error: ${error.message}`;
         }
     }
 
@@ -262,6 +296,7 @@
         document.getElementById("tickets-panel").style.display = "block";
         document.getElementById("whitelist-panel").style.display = "none";
         document.getElementById("whitelist-all-panel").style.display = "none";
+        document.getElementById("settings-section").style.display = "none";
         fetchTickets();
         clearInterval(whitelistInterval);
     }
@@ -271,7 +306,7 @@
         const ticketList = document.getElementById("ticket-list");
         ticketList.innerHTML = "";
         const filteredTickets = tickets.filter(ticket => ticket.status.toLowerCase() === currentFilter);
-        if (!filteredTickets || filteredTickets.length === 0) {
+        if (!filteredTickets.length) {
             ticketList.innerHTML = "<p>No tickets found.</p>";
             return;
         }
@@ -302,7 +337,6 @@
         if (!operatorToken) return;
         try {
             const response = await fetch(`${API_BASE_URL}/operator/ticket/${ticketId}/messages`, {
-                method: "GET",
                 headers: { "Authorization": `Bearer ${operatorToken}` }
             });
             const data = await handleResponse(response, "operator-error");
@@ -326,10 +360,7 @@
     document.getElementById("operator-message-form").addEventListener("submit", async (e) => {
         e.preventDefault();
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
-        if (!operatorToken || !selectedTicketId) {
-            document.getElementById("operator-error").textContent = "Please login and select a ticket!";
-            return;
-        }
+        if (!operatorToken || !selectedTicketId) return;
         const formData = new FormData(e.target);
         formData.append("token", operatorToken);
         formData.append("ticket_id", selectedTicketId);
@@ -348,10 +379,7 @@
     // Закрытие тикета
     async function closeTicket() {
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
-        if (!operatorToken || !selectedTicketId) {
-            document.getElementById("operator-error").textContent = "Please login and select a ticket!";
-            return;
-        }
+        if (!operatorToken || !selectedTicketId) return;
         try {
             const formData = new FormData();
             formData.append("token", operatorToken);
@@ -371,7 +399,7 @@
         }
     }
 
-    // Показать Whitelist Pending
+    // Whitelist Pending
     function showWhitelist() {
         document.querySelectorAll(".sidebar .nav-link").forEach(link => {
             link.classList.remove("active");
@@ -380,21 +408,17 @@
         document.getElementById("tickets-panel").style.display = "none";
         document.getElementById("whitelist-panel").style.display = "block";
         document.getElementById("whitelist-all-panel").style.display = "none";
+        document.getElementById("settings-section").style.display = "none";
         fetchWhitelistPending();
         clearInterval(whitelistInterval);
         whitelistInterval = setInterval(fetchWhitelistPending, 10000);
     }
 
-    // Получение Whitelist Pending
     async function fetchWhitelistPending() {
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
-        if (!operatorToken) {
-            document.getElementById("operator-error").textContent = "Please login first!";
-            return;
-        }
+        if (!operatorToken) return;
         try {
             const response = await fetch(`${API_BASE_URL}/operator/whitelist`, {
-                method: "GET",
                 headers: { "Authorization": `Bearer ${operatorToken}` }
             });
             const data = await handleResponse(response, "operator-error");
@@ -406,111 +430,93 @@
         }
     }
 
-    // Отображение Whitelist Pending (компактная таблица)
     function displayWhitelist(requests) {
         const whitelistList = document.getElementById("whitelist-list");
         whitelistList.innerHTML = "";
-        const pendingRequests = requests.filter(req => req.permission === 0);
-        if (!pendingRequests || pendingRequests.length === 0) {
+        const pendingRequests = requests.filter(req => req.permission === "pending");
+        if (!pendingRequests.length) {
             whitelistList.innerHTML = "<p>No pending requests.</p>";
             return;
         }
-
         let table = document.createElement("table");
         table.className = "table table-sm table-bordered";
-        let thead = document.createElement("thead");
-        thead.innerHTML = `
-            <tr>
-                <th>ID</th>
-                <th>Telegram ID</th>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Text</th>
-                <th>Created</th>
-                <th>Actions</th>
-            </tr>
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Telegram ID</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Text</th>
+                    <th>Stand</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${pendingRequests.map(req => `
+                    <tr>
+                        <td>${req.id}</td>
+                        <td>${req.telegram_id}</td>
+                        <td>${req.first_name} ${req.last_name}</td>
+                        <td>${req.username}</td>
+                        <td>${req.text.length > 20 ? req.text.substring(0, 20) + "..." : req.text}</td>
+                        <td>${req.from}</td>
+                        <td>${new Date(req.create_date).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-success btn-sm me-1" onclick="approveWhitelist('${req.telegram_id}')">Approve</button>
+                            <button class="btn btn-danger btn-sm" onclick="denyWhitelist('${req.telegram_id}')">Deny</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
         `;
-        table.appendChild(thead);
-
-        let tbody = document.createElement("tbody");
-        pendingRequests.forEach(req => {
-            let displayText = req.text.length > 20 ? req.text.substring(0, 20) + "..." : req.text;
-            let row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${req.id}</td>
-                <td>${req.telegram_id}</td>
-                <td>${req.first_name} ${req.last_name}</td>
-                <td>${req.username}</td>
-                <td>${displayText}</td>
-                <td>${new Date(req.create_date).toLocaleString()}</td>
-                <td>
-                    <button class="btn btn-success btn-sm me-1" onclick="approveWhitelist('${req.telegram_id}')">Approve</button>
-                    <button class="btn btn-danger btn-sm" onclick="denyWhitelist('${req.telegram_id}')">Deny</button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-        table.appendChild(tbody);
         whitelistList.appendChild(table);
     }
 
-    // Одобрение Whitelist
     async function approveWhitelist(telegramId) {
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
-        if (!operatorToken) {
-            document.getElementById("operator-error").textContent = "Please login first!";
-            return;
-        }
+        if (!operatorToken) return;
         try {
-            const formData = new FormData();
-            formData.append("perm", "true");
             const response = await fetch(`${API_BASE_URL}/operator/whitelist/${telegramId}/edit`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${operatorToken}` },
-                body: formData
+                headers: {
+                    "Authorization": `Bearer ${operatorToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ permission: "approve" })
             });
             const data = await handleResponse(response, "operator-error");
             if (data) {
-                if (document.getElementById("whitelist-panel").style.display === "block") {
-                    fetchWhitelistPending();
-                } else {
-                    fetchWhitelistAll();
-                }
+                fetchWhitelistPending();
             }
         } catch (error) {
             document.getElementById("operator-error").textContent = `Error: ${error.message}`;
         }
     }
 
-    // Отклонение Whitelist
     async function denyWhitelist(telegramId) {
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
-        if (!operatorToken) {
-            document.getElementById("operator-error").textContent = "Please login first!";
-            return;
-        }
+        if (!operatorToken) return;
         try {
-            const formData = new FormData();
-            formData.append("perm", "false");
             const response = await fetch(`${API_BASE_URL}/operator/whitelist/${telegramId}/edit`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${operatorToken}` },
-                body: formData
+                headers: {
+                    "Authorization": `Bearer ${operatorToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ permission: "deny" })
             });
             const data = await handleResponse(response, "operator-error");
             if (data) {
-                if (document.getElementById("whitelist-panel").style.display === "block") {
-                    fetchWhitelistPending();
-                } else {
-                    fetchWhitelistAll();
-                }
+                fetchWhitelistPending();
             }
         } catch (error) {
             document.getElementById("operator-error").textContent = `Error: ${error.message}`;
         }
     }
 
-    // Показать All Whitelist
+    // All Whitelist
     function showAllWhitelist() {
         document.querySelectorAll(".sidebar .nav-link").forEach(link => {
             link.classList.remove("active");
@@ -519,145 +525,241 @@
         document.getElementById("tickets-panel").style.display = "none";
         document.getElementById("whitelist-panel").style.display = "none";
         document.getElementById("whitelist-all-panel").style.display = "block";
+        document.getElementById("settings-section").style.display = "none";
         fetchWhitelistAll();
         clearInterval(whitelistInterval);
     }
 
-    // Получение всех записей Whitelist
     async function fetchWhitelistAll() {
         operatorToken = localStorage.getItem("operatorToken") || operatorToken;
-        if (!operatorToken) {
-            document.getElementById("operator-error").textContent = "Please login first!";
-            return;
-        }
+        if (!operatorToken) return;
         try {
             const response = await fetch(`${API_BASE_URL}/operator/whitelist/all`, {
-                method: "GET",
                 headers: { "Authorization": `Bearer ${operatorToken}` }
             });
             const data = await handleResponse(response, "operator-error");
             if (data) {
                 allWhitelistData = data;
-                displayWhitelistAll(allWhitelistData);
+                displayWhitelistAll(data);
             }
         } catch (error) {
             document.getElementById("operator-error").textContent = `Error: ${error.message}`;
         }
     }
 
-    // Отображение всех записей Whitelist с фильтрацией и сортировкой
     function displayWhitelistAll(requests) {
         const whitelistList = document.getElementById("whitelist-all-list");
         whitelistList.innerHTML = "";
-        if (!requests || requests.length === 0) {
+        if (!requests.length) {
             whitelistList.innerHTML = "<p>No whitelist entries found.</p>";
             return;
         }
-
         let table = document.createElement("table");
         table.className = "table table-sm table-bordered";
-        let thead = document.createElement("thead");
-        thead.innerHTML = `
-            <tr>
-                <th onclick="sortWhitelistAll('id')">ID ↓</th>
-                <th onclick="sortWhitelistAll('telegram_id')">Telegram ID ↓</th>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Text</th>
-                <th>Status</th>
-                <th onclick="sortWhitelistAll('create_date')">Created ↓</th>
-                <th>Actions</th>
-            </tr>
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Telegram ID</th>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Text</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${requests.map(req => `
+                    <tr>
+                        <td>${req.id}</td>
+                        <td>${req.telegram_id}</td>
+                        <td>${req.first_name} ${req.last_name}</td>
+                        <td>${req.username}</td>
+                        <td>${req.text.length > 20 ? req.text.substring(0, 20) + "..." : req.text}</td>
+                        <td class="${req.permission === 'pending' ? 'text-warning' : req.permission === 'approve' ? 'text-success' : 'text-danger'}">
+                            ${req.permission === "pending" ? "Pending" : req.permission === "approve" ? "Approved" : "Denied"}
+                        </td>
+                        <td>${new Date(req.create_date).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-success btn-sm me-1" onclick="approveWhitelist('${req.telegram_id}')">Approve</button>
+                            <button class="btn btn-danger btn-sm" onclick="denyWhitelist('${req.telegram_id}')">Deny</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
         `;
-        table.appendChild(thead);
+        whitelistList.appendChild(table);
+    }
 
-        let tbody = document.createElement("tbody");
-        requests.forEach(req => {
-            let status = req.permission === 0 ? "Pending" : req.permission === 1 ? "Approved" : "Denied";
-            let statusClass = req.permission === 0 ? "text-warning" : req.permission === 1 ? "text-success" : "text-danger";
-            let displayText = req.text.length > 20 ? req.text.substring(0, 20) + "..." : req.text;
-            let row = document.createElement("tr");
+    function filterWhitelistAll() {
+        const searchValue = document.getElementById("whitelist-search").value.toLowerCase();
+        const filterValue = document.getElementById("whitelist-filter").value;
+        let filteredData = allWhitelistData.filter(req =>
+            (req.telegram_id.toString().includes(searchValue) ||
+                `${req.first_name} ${req.last_name}`.toLowerCase().includes(searchValue) ||
+                req.username.toLowerCase().includes(searchValue)) &&
+            (filterValue === "all" || req.permission === filterValue)
+        );
+        displayWhitelistAll(filteredData);
+    }
+
+    // Settings
+    function showSettings() {
+        document.querySelectorAll(".sidebar .nav-link").forEach(link => {
+            link.classList.remove("active");
+            if (link.getAttribute("onclick") === "showSettings()") link.classList.add("active");
+        });
+        document.getElementById("tickets-panel").style.display = "none";
+        document.getElementById("whitelist-panel").style.display = "none";
+        document.getElementById("whitelist-all-panel").style.display = "none";
+        document.getElementById("settings-section").style.display = "block";
+        fetchSettings();
+    }
+
+    async function fetchSettings() {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken) {
+            document.getElementById("operator-error").textContent = "Please login first!";
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/settings/`, {
+                headers: { "Authorization": `Bearer ${operatorToken}` }
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                displaySettings(data);
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
+
+    function displaySettings(endpoints) {
+        const tbody = document.querySelector("#settings-table tbody");
+        tbody.innerHTML = "";
+        if (!endpoints || !endpoints.length) {
+            tbody.innerHTML = "<tr><td colspan='3'>No endpoints found.</td></tr>";
+            return;
+        }
+        endpoints.forEach(ep => {
+            const row = document.createElement("tr");
             row.innerHTML = `
-                <td>${req.id}</td>
-                <td>${req.telegram_id}</td>
-                <td>${req.first_name} ${req.last_name}</td>
-                <td>${req.username}</td>
-                <td>${displayText}</td>
-                <td class="${statusClass}">${status}</td>
-                <td>${new Date(req.create_date).toLocaleString()}</td>
+                <td>${ep.name || "Unnamed"}</td>
+                <td>${ep.url || "No URL"}</td>
                 <td>
-                    <button class="btn btn-success btn-sm me-1" onclick="approveWhitelist('${req.telegram_id}')">Approve</button>
-                    <button class="btn btn-danger btn-sm" onclick="denyWhitelist('${req.telegram_id}')">Deny</button>
+                    <button class="btn btn-primary btn-sm me-1" onclick="updateEndpoint('${ep.id}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteEndpoint('${ep.id}')">Delete</button>
                 </td>
             `;
             tbody.appendChild(row);
         });
-        table.appendChild(tbody);
-        whitelistList.appendChild(table);
     }
 
-    // Фильтрация All Whitelist
-    function filterWhitelistAll() {
-        const searchValue = document.getElementById("whitelist-search").value.toLowerCase();
-        const filterValue = document.getElementById("whitelist-filter").value;
-        let filteredData = [...allWhitelistData];
-
-        // Фильтр по поиску
-        if (searchValue) {
-            filteredData = filteredData.filter(req =>
-                req.telegram_id.toString().includes(searchValue) ||
-                `${req.first_name} ${req.last_name}`.toLowerCase().includes(searchValue) ||
-                req.username.toLowerCase().includes(searchValue)
-            );
+    document.getElementById("addSettingsForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const token = localStorage.getItem("operatorToken");
+        if (!token) {
+            console.error("No token found");
+            return;
         }
-
-        // Фильтр по статусу
-        if (filterValue !== "all") {
-            filteredData = filteredData.filter(req => req.permission === parseInt(filterValue));
+        const name = document.getElementById("setting-name").value.trim();
+        const url = document.getElementById("setting-url").value.trim();
+        if (!name || !url) {
+            console.error("Name and URL are required");
+            return;
         }
-
-        displayWhitelistAll(filteredData);
-    }
-
-    // Сортировка All Whitelist
-    let sortDirection = {};
-    function sortWhitelistAll(field) {
-        sortDirection[field] = !sortDirection[field]; // Переключение направления
-        let sortedData = [...allWhitelistData];
-        sortedData.sort((a, b) => {
-            let valA = field === "create_date" ? new Date(a[field]) : a[field];
-            let valB = field === "create_date" ? new Date(b[field]) : b[field];
-            if (sortDirection[field]) {
-                return valA > valB ? 1 : -1;
-            } else {
-                return valA < valB ? 1 : -1;
+        const data = { name, url };
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/settings/`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to add endpoint: ${errorText}`);
             }
-        });
-        displayWhitelistAll(sortedData);
+            const result = await response.json();
+            console.log("Endpoint added:", result);
+            fetchSettings(); // Обновить список
+        } catch (error) {
+            console.error(error.message);
+        }
+    });
+
+    async function updateEndpoint(id) {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken || id === "undefined") return;
+        const newName = prompt("Enter new name:", "").trim();
+        const newUrl = prompt("Enter new URL:", "").trim();
+        if (!newName || !newUrl) {
+            document.getElementById("operator-error").textContent = "Name and URL are required!";
+            return;
+        }
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/settings/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `Bearer ${operatorToken}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ name: newName, url: newUrl })
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (data) {
+                fetchSettings();
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
     }
 
-    // Обработка ответа
+    async function deleteEndpoint(id) {
+        operatorToken = localStorage.getItem("operatorToken") || operatorToken;
+        if (!operatorToken || id === "undefined") {
+            document.getElementById("operator-error").textContent = "Invalid ID or not logged in!";
+            return;
+        }
+        if (!confirm("Are you sure you want to delete this endpoint?")) return;
+        try {
+            const response = await fetch(`${API_BASE_URL}/operator/settings/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${operatorToken}` }
+            });
+            const data = await handleResponse(response, "operator-error");
+            if (response.ok) {
+                fetchSettings();
+            }
+        } catch (error) {
+            document.getElementById("operator-error").textContent = `Error: ${error.message}`;
+        }
+    }
+
     async function handleResponse(response, errorId) {
         const errorDiv = document.getElementById(errorId);
-        let text = "";
         try {
-            text = await response.text();
-            console.log(`Raw response from ${response.url}:`, text);
-            const data = JSON.parse(text);
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
             if (response.ok) {
                 errorDiv.textContent = "";
                 return data;
             } else {
-                errorDiv.textContent = `Error ${response.status}: ${JSON.stringify(data, null, 2)}`;
+                errorDiv.textContent = `Error ${response.status}: ${data.error || text || "Unknown error"}`;
                 return null;
             }
         } catch (error) {
-            errorDiv.textContent = `Invalid response from server: ${error.message} (Raw: ${text})`;
+            errorDiv.textContent = `Invalid response: ${error.message}`;
             return null;
         }
     }
 
-    // Переключение форм логина
+    // Переключение форм
     function toggleLoginForms(show) {
         document.getElementById("operator-login-form").style.display = show ? "none" : "block";
         document.getElementById("operator-logout-form").style.display = show ? "block" : "none";
@@ -669,20 +771,6 @@
         toggleLoginForms(true);
         fetchTickets();
     }
-
-    // Восстановление состояния при загрузке страницы
-    window.onload = function() {
-        const hash = window.location.hash.replace('#', '');
-        if (hash === 'open' || hash === 'closed') {
-            filterTickets(hash);
-        } else if (hash === 'whitelist') {
-            showWhitelist();
-        } else if (hash === 'all-whitelist') {
-            showAllWhitelist();
-        } else {
-            filterTickets('open');
-        }
-    };
 </script>
 </body>
 </html>

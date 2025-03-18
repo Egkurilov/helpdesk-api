@@ -523,6 +523,221 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/whitelist": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает все записи whitelist со статусом \"Pending\" (permission = 0)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "Получить список заявок в ожидании",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Whitelist"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Добавляет новую заявку в whitelist со статусом \"Pending\" (permission = 0). Если заявка уже существует (по telegram_id и from), возвращает 200 OK.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "Создать новую заявку в whitelist",
+                "parameters": [
+                    {
+                        "description": "Данные заявки",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.WhitelistRequestInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message: Запрос уже существует",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "201": {
+                        "description": "message: Запрос создан, id: \u003cid\u003e",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/whitelist/all": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает все записи whitelist независимо от статуса",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "Получить все записи whitelist",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Whitelist"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/whitelist/{telegram_id}/edit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Изменяет статус заявки (Approved = 1 или Denied = 2) для указанного Telegram ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "whitelist"
+                ],
+                "summary": "Обновить статус заявки в whitelist",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Telegram ID пользователя",
+                        "name": "telegram_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Новое значение разрешения",
+                        "name": "permission",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.WhitelistEditInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message: OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -552,6 +767,72 @@ const docTemplate = `{
                 "telegram_id": {
                     "type": "string",
                     "example": "88376478"
+                }
+            }
+        },
+        "handlers.WhitelistEditInput": {
+            "type": "object",
+            "required": [
+                "perm"
+            ],
+            "properties": {
+                "perm": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handlers.WhitelistRequestInput": {
+            "type": "object",
+            "required": [
+                "chatId",
+                "from",
+                "text",
+                "user"
+            ],
+            "properties": {
+                "chatId": {
+                    "type": "integer"
+                },
+                "from": {
+                    "type": "string",
+                    "enum": [
+                        "dev",
+                        "ift",
+                        "psi",
+                        "prom"
+                    ]
+                },
+                "text": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "object",
+                    "required": [
+                        "first_name",
+                        "id",
+                        "last_name",
+                        "username"
+                    ],
+                    "properties": {
+                        "first_name": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "integer"
+                        },
+                        "is_bot": {
+                            "type": "boolean"
+                        },
+                        "language_code": {
+                            "type": "string"
+                        },
+                        "last_name": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
@@ -674,6 +955,64 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.Whitelist": {
+            "type": "object",
+            "required": [
+                "from"
+            ],
+            "properties": {
+                "chat_id": {
+                    "type": "integer"
+                },
+                "create_date": {
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "description": "изменено",
+                    "type": "string"
+                },
+                "from": {
+                    "description": "Уникальный индекс",
+                    "type": "string",
+                    "enum": [
+                        "dev",
+                        "ift",
+                        "psi",
+                        "prom"
+                    ]
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "language_code": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "description": "если необходимо",
+                    "type": "string"
+                },
+                "permission": {
+                    "type": "integer"
+                },
+                "telegram_id": {
+                    "description": "Уникальный индекс",
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "description": "если необходимо",
+                    "type": "string"
                 }
             }
         }

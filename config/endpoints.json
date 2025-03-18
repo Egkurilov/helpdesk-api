@@ -1,0 +1,8 @@
+{
+  "stands": {
+    "dev": "http://localhost:7001/api",
+    "ift": "http://localhost:7001/api",
+    "psi": "http://localhost:7002/api",
+    "prom": "http://localhost:7003/api"
+  }
+}
